@@ -1,9 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, useColorScheme, ScrollView, Linking, Image, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, useColorScheme, ScrollView, Linking, Image, Dimensions, LayoutAnimation, Platform, UIManager } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../core/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import { API_BASE_URL, apiFetch } from '../core/api';
+
+// Enable LayoutAnimation for Android
+if (Platform.OS === 'android') {
+  if (UIManager.setLayoutAnimationEnabledExperimental) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+  }
+}
 
 const { width, height } = Dimensions.get('window');
 
@@ -46,6 +53,7 @@ const Home = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [expandedBenefit, setExpandedBenefit] = useState(null); // New state for expanded benefit
 
   useEffect(() => {
     if (accessToken) {
@@ -118,6 +126,12 @@ const Home = () => {
     } catch (err) {
       console.error('Error al agregar al carrito:', err);
     }
+  };
+
+  // Toggle benefit expansion
+  const toggleBenefitExpansion = (index) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedBenefit(expandedBenefit === index ? null : index);
   };
 
   const renderProduct = (product, index) => (
@@ -216,6 +230,37 @@ const Home = () => {
       </View>
   );
 
+  const benefitsData = [
+    {
+      icon: 'water',
+      title: 'Hidratación Profunda',
+      desc: 'Cabello suave y sedoso desde la primera aplicación. Mantiene la humedad natural del cuero cabelludo y el cabello, evitando la sequedad y el frizz.',
+      shortDesc: 'Cabello suave y sedoso',
+      color: COLORS.primary
+    },
+    {
+      icon: 'shield-checkmark',
+      title: 'Protección Natural',
+      desc: 'Crea una barrera protectora contra los daños ambientales, el calor de herramientas de estilizado y la contaminación. Fortalece la hebra capilar.',
+      shortDesc: 'Contra daño ambiental',
+      color: COLORS.success
+    },
+    {
+      icon: 'flash',
+      title: 'Fortalecimiento Capilar',
+      desc: 'Nutre el folículo piloso, reduciendo la caída del cabello y promoviendo un crecimiento más fuerte y saludable. Repara el cabello dañado.',
+      shortDesc: 'Desde la raíz',
+      color: COLORS.secondary
+    },
+    {
+      icon: 'sparkles',
+      title: 'Brillo y Vitalidad',
+      desc: 'Devuelve el brillo natural a tu cabello sin dejar residuos grasos. Mejora la elasticidad y la apariencia general para un look radiante.',
+      shortDesc: 'Sin químicos agresivos',
+      color: COLORS.accent
+    },
+  ];
+
   return (
       <View style={{ flex: 1 }}>
         <ScrollView
@@ -295,30 +340,44 @@ const Home = () => {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.benefitsScroll}
             >
-              {[
-                { icon: 'water', title: 'Hidratación', desc: 'Cabello suave y sedoso', color: COLORS.primary },
-                { icon: 'shield-checkmark', title: 'Protección', desc: 'Contra daño ambiental', color: COLORS.success },
-                { icon: 'flash', title: 'Fortalece', desc: 'Desde la raíz', color: COLORS.secondary },
-                { icon: 'sparkles', title: 'Brillo Natural', desc: 'Sin químicos agresivos', color: COLORS.accent },
-              ].map((benefit, index) => (
-                  <View key={index} style={[
-                    styles.benefitCard,
-                    {
-                      backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)',
-                      borderColor: benefit.color,
-                      borderWidth: 2,
-                    }
-                  ]}>
+              {benefitsData.map((benefit, index) => (
+                  <TouchableOpacity
+                      key={index}
+                      style={[
+                        styles.benefitCard,
+                        {
+                          backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)',
+                          borderColor: benefit.color,
+                          borderWidth: 2,
+                        },
+                        expandedBenefit === index && styles.expandedBenefitCard // Apply expanded style
+                      ]}
+                      onPress={() => toggleBenefitExpansion(index)}
+                      activeOpacity={0.8}
+                  >
                     <View style={[styles.benefitIcon, { backgroundColor: benefit.color }]}>
                       <Ionicons name={benefit.icon} size={28} color="#FFF" />
                     </View>
                     <Text style={[styles.benefitTitle, { color: theme.text }]}>
                       {benefit.title}
                     </Text>
-                    <Text style={[styles.benefitDesc, { color: theme.textSecondary }]}>
-                      {benefit.desc}
+                    <Text
+                        style={[styles.benefitDesc, { color: theme.textSecondary }]}
+                        numberOfLines={expandedBenefit === index ? 0 : 2} // Show all lines when expanded
+                    >
+                      {expandedBenefit === index ? benefit.desc : benefit.shortDesc}
                     </Text>
-                  </View>
+                    {expandedBenefit !== index && (
+                        <Text style={[styles.readMoreText, {color: COLORS.secondary}]}>
+                          Ver más...
+                        </Text>
+                    )}
+                    {expandedBenefit === index && (
+                        <Text style={[styles.readMoreText, {color: COLORS.secondary}]}>
+                          Ver menos
+                        </Text>
+                    )}
+                  </TouchableOpacity>
               ))}
             </ScrollView>
           </View>
@@ -594,11 +653,18 @@ const styles = StyleSheet.create({
     paddingRight: 40,
   },
   benefitCard: {
-    width: 140,
+    width: 160, // Fixed width for all cards
+    height: 200, // Fixed height for non-expanded cards
     alignItems: 'center',
+    justifyContent: 'space-between', // Distribute space
     padding: 20,
     borderRadius: 16,
     marginRight: 16,
+    position: 'relative', // For "Ver más" text positioning
+  },
+  expandedBenefitCard: {
+    height: 'auto', // Allow height to expand
+    minHeight: 240, // Minimum height when expanded
   },
   benefitIcon: {
     width: 56,
@@ -618,6 +684,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     lineHeight: 16,
+    flexGrow: 1, // Allow description to take up available space
+  },
+  readMoreText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginTop: 8,
+    textAlign: 'center',
   },
 
   // Productos
